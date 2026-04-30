@@ -30,6 +30,17 @@ def init_session_state():
         "centrality_results": {},
         "community_results": {},
         "filtered_graph": None,
+        "viz_html_content": None,
+        "metrics_basic": None,
+        "metrics_degree_dist": None,
+        "metrics_components": None,
+        "metrics_clustering": None,
+        "metrics_avg_path": None,
+        "link_pagerank": None,
+        "influence_result": None,
+        "eval_result": None,
+        "comparison_results": None,
+        "community_algorithm": None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -61,7 +72,8 @@ def main():
         """)
         return
 
-    tabs = st.tabs(
+    active_tab = st.radio(
+        "Section",
         [
             "Visualization",
             "Metrics",
@@ -70,22 +82,25 @@ def main():
             "Evaluation",
             "Link Analysis",
             "Export",
-        ]
+        ],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="active_section",
     )
 
-    with tabs[0]:
+    if active_tab == "Visualization":
         render_visualization_tab(viz_params)
-    with tabs[1]:
+    elif active_tab == "Metrics":
         render_metrics_tab()
-    with tabs[2]:
+    elif active_tab == "Centrality":
         render_centrality_tab()
-    with tabs[3]:
+    elif active_tab == "Communities":
         render_community_tab()
-    with tabs[4]:
+    elif active_tab == "Evaluation":
         render_evaluation_tab()
-    with tabs[5]:
+    elif active_tab == "Link Analysis":
         render_link_analysis_tab()
-    with tabs[6]:
+    elif active_tab == "Export":
         render_export_tab()
 
 

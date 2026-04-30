@@ -12,8 +12,6 @@ from filtering import (
     filter_by_community,
     filter_by_attribute,
     filter_by_degree_range,
-    get_attribute_values,
-    get_available_attributes,
 )
 
 
@@ -21,6 +19,44 @@ def get_active_graph():
     if st.session_state.get("filtered_graph") is not None:
         return st.session_state.filtered_graph
     return st.session_state.get("graph")
+
+
+def _cache_node_attributes():
+    """Cache node attributes in session_state to avoid scanning graph on every rerun."""
+    graph = st.session_state.get("graph")
+    if graph is None:
+        return
+    cache_key = f"attr_cache_{id(graph)}"
+    if cache_key not in st.session_state:
+        attributes = set()
+        degrees = []
+        for node, data in graph.nodes(data=True):
+            attributes.update(data.keys())
+            degrees.append(graph.degree(node))
+        st.session_state[cache_key] = sorted(attributes)
+        values_cache = {}
+        for attr in attributes:
+            values = {
+                data.get(attr) for _, data in graph.nodes(data=True) if attr in data
+            }
+            values_cache[attr] = sorted(values, key=lambda v: (v is None, v))
+        st.session_state[f"values_cache_{id(graph)}"] = values_cache
+        st.session_state[f"degree_cache_{id(graph)}"] = degrees
+
+
+def _get_cached_attributes():
+    graph = st.session_state.get("graph")
+    if graph is None:
+        return []
+    return st.session_state.get(f"attr_cache_{id(graph)}", [])
+
+
+def _get_cached_values(attribute):
+    graph = st.session_state.get("graph")
+    if graph is None:
+        return []
+    vc = st.session_state.get(f"values_cache_{id(graph)}", {})
+    return vc.get(attribute, [])
 
 
 def _auto_detect_files(data_dir):
@@ -90,6 +126,16 @@ def render_sidebar() -> dict:
             nodes_path = uploaded_nodes
             edges_path = uploaded_edges
 
+        edge_mode = st.radio(
+            "Edge Mode",
+            ["Unique Edges (Aggregated)", "All Edges (Raw)"],
+            index=0,
+            key="edge_mode",
+            help="Unique Edges merges duplicate contacts into weighted edges. "
+            "All Edges keeps every individual contact as a separate edge.",
+        )
+        use_multigraph = edge_mode == "All Edges (Raw)"
+
         if st.button("Load Graph", type="primary", key="load_graph"):
             if nodes_path and edges_path:
                 try:
@@ -97,11 +143,20 @@ def render_sidebar() -> dict:
                         with open(nodes_path, "rb") as f:
                             nodes_df = load_nodes_csv(io.BytesIO(f.read()))
                         with open(edges_path, "rb") as f:
-                            edges_df = load_edges_csv(io.BytesIO(f.read()))
+                            edges_df = load_edges_csv(
+                                io.BytesIO(f.read()), aggregate=not use_multigraph
+                            )
                     else:
                         nodes_df = load_nodes_csv(nodes_path)
-                        edges_df = load_edges_csv(edges_path)
-                    graph = build_graph(nodes_df, edges_df, directed=directed)
+                        edges_df = load_edges_csv(
+                            edges_path, aggregate=not use_multigraph
+                        )
+                    graph = build_graph(
+                        nodes_df,
+                        edges_df,
+                        directed=directed,
+                        use_multigraph=use_multigraph,
+                    )
 
                     st.session_state.graph = graph
                     st.session_state.nodes_df = nodes_df
@@ -110,6 +165,8 @@ def render_sidebar() -> dict:
                     st.session_state.centrality_results = None
                     st.session_state.community_results = None
                     st.session_state.filtered_graph = None
+
+                    _cache_node_attributes()
 
                     info = get_graph_info(graph)
                     kind = "directed" if directed else "undirected"
@@ -211,7 +268,10 @@ def render_sidebar() -> dict:
                     labels = (
                         comm_res.labels if hasattr(comm_res, "labels") else comm_res
                     )
-                    communities = set(labels.values())
+                    if hasattr(labels, "values"):
+                        communities = set(labels.values())
+                    else:
+                        communities = set()
                     selected = st.multiselect("Communities", sorted(communities))
                     if selected and st.button(
                         "Apply Community Filter", key="apply_comm_filt"
@@ -219,14 +279,14 @@ def render_sidebar() -> dict:
                         st.session_state.filtered_graph = filter_by_community(
                             graph,
                             labels,
-                            set(int(c) for c in selected),
+                            set(str(c) for c in selected),
                         )
 
             elif filter_type == "Attribute":
-                available_attrs = get_available_attributes(graph)
+                available_attrs = _get_cached_attributes()
                 if available_attrs:
                     attr = st.selectbox("Attribute", available_attrs)
-                    values = get_attribute_values(graph, attr)
+                    values = _get_cached_values(attr)
                     selected_values = st.multiselect("Values", sorted(set(values)))
                     if selected_values and st.button(
                         "Apply Attribute Filter", key="apply_attr_filt"
@@ -238,7 +298,9 @@ def render_sidebar() -> dict:
                     st.info("No node attributes available.")
 
             elif filter_type == "Degree":
-                degrees = [d for _, d in graph.degree()]
+                degrees = st.session_state.get(
+                    f"degree_cache_{id(graph)}", [d for _, d in graph.degree()]
+                )
                 if degrees:
                     min_deg, max_deg = min(degrees), max(degrees)
                     deg_range = st.slider(
