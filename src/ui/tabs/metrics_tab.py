@@ -70,7 +70,7 @@ def render_metrics_tab():
             columns=["Degree", "Count"],
         )
         fig = px.bar(dist_df, x="Degree", y="Count", title="Degree Distribution")
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
         col_a, col_b, col_c, col_d = st.columns(4)
         col_a.metric("Min Degree", degree_dist["min"])
         col_b.metric("Max Degree", degree_dist["max"])
@@ -96,7 +96,7 @@ def render_metrics_tab():
         comp_df = pd.DataFrame(
             [{"Component": i + 1, "Size": len(c)} for i, c in enumerate(components)]
         )
-        st.dataframe(comp_df, width="stretch")
+        st.dataframe(comp_df, use_container_width=True)
 
     clustering_result = st.session_state.get("metrics_clustering")
     if clustering_result is not None:
@@ -106,7 +106,7 @@ def render_metrics_tab():
         clust_df = pd.DataFrame(
             list(per_node.items()), columns=["Node", "Clustering Coefficient"]
         ).sort_values("Clustering Coefficient", ascending=False)
-        st.dataframe(clust_df, width="stretch")
+        st.dataframe(clust_df, use_container_width=True)
 
     if st.button("Export Metrics CSV", key=f"export_metrics_{gk}"):
         path = export_metrics_csv(basic)

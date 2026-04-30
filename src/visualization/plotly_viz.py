@@ -58,21 +58,23 @@ def create_plotly_figure(
     if community_labels is not None:
         color_key = "__community__"
 
-    color_categories: list = []
+    color_map_data: dict = {}
+    if color_key:
+        all_categories = []
+        for node in G.nodes():
+            if color_key == "__community__":
+                all_categories.append(community_labels.get(node, 0))
+            elif color_key is not None:
+                all_categories.append(G.nodes[node].get(color_key, ""))
+            else:
+                all_categories.append("")
+        unique_cats = sorted(set(all_categories))
+        color_map_data = {
+            cat: GRAPH_COLORS[i % len(GRAPH_COLORS)]
+            for i, cat in enumerate(unique_cats)
+        }
+
     for node in G.nodes():
-        if color_key == "__community__":
-            color_categories.append(community_labels.get(node, 0))
-        elif color_key is not None:
-            color_categories.append(G.nodes[node].get(color_key, ""))
-        else:
-            color_categories.append("")
-
-    unique_cats = sorted(set(color_categories)) if color_key else []
-    color_map = {
-        cat: GRAPH_COLORS[i % len(GRAPH_COLORS)] for i, cat in enumerate(unique_cats)
-    }
-
-    for idx, node in enumerate(G.nodes()):
         if node not in positions:
             continue
         x, y = positions[node]
@@ -80,8 +82,12 @@ def create_plotly_figure(
         node_y.append(float(y))
         node_labels.append(str(node))
 
-        if color_key and idx < len(color_categories):
-            node_colors.append(color_map.get(color_categories[idx], "#1f77b4"))
+        if color_key:
+            if color_key == "__community__":
+                cat = community_labels.get(node, 0)
+            else:
+                cat = G.nodes[node].get(color_key, "")
+            node_colors.append(color_map_data.get(cat, "#1f77b4"))
         else:
             node_colors.append("#1f77b4")
 

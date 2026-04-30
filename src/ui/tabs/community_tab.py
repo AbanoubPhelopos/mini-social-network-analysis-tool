@@ -63,7 +63,7 @@ def render_community_tab():
     comp_results = st.session_state.get("comparison_results")
     if comp_results:
         comp_df = compare_algorithms(comp_results)
-        st.dataframe(comp_df, width="stretch", hide_index=True)
+        st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
         col_a, col_b, col_c = st.columns(3)
         for i, res in enumerate(comp_results):
@@ -90,17 +90,23 @@ def render_community_tab():
         st.metric("Time", f"{results.execution_time:.2f}s")
 
     st.subheader("Community Sizes")
-    df = community_result_to_dataframe(results, graph)
+    cache_key = f"comm_df_{st.session_state.get('community_algorithm', '')}_{st.session_state.get('graph') is not None}"
+    if cache_key not in st.session_state:
+        df = community_result_to_dataframe(results, graph)
+        st.session_state[cache_key] = df
+    else:
+        df = st.session_state[cache_key]
+
     if df is not None and not df.empty:
         community_col = "community"
         size_counts = df[community_col].value_counts().reset_index()
         size_counts.columns = ["Community", "Size"]
         fig = px.bar(size_counts, x="Community", y="Size", title="Community Sizes")
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Community Assignments")
     if df is not None:
-        st.dataframe(df, width="stretch")
+        st.dataframe(df, use_container_width=True)
 
     if st.button("Export Community CSV", key="export_comm"):
         csv_data = df.to_csv(index=False)

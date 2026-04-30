@@ -47,11 +47,11 @@ def render_centrality_tab():
         title=f"{selected_measure.replace('_', ' ').title()} Distribution",
     )
     fig.update_layout(xaxis_title="Score", yaxis_title="Count")
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Full Centrality Table")
     df = centrality_to_dataframe(results)
-    st.dataframe(df, width="stretch")
+    st.dataframe(df, use_container_width=True)
 
     if st.button("Export Centrality CSV", key="export_cent_tab"):
         path = export_centrality_csv(df)

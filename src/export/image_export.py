@@ -27,13 +27,14 @@ def export_graph_image(
     """
     layout_key = LAYOUT_OPTIONS.get(layout_name, "spring")
     layout_func_name = {
-        "spring": "Spring",
+        "spring": "Spring (Force-Directed)",
+        "fruchterman_reingold": "Fruchterman-Reingold",
         "circular": "Circular",
         "random": "Random",
-        "shell": "Shell",
+        "shell": "Shell (Radial)",
         "kamada_kawai": "Kamada-Kawai",
         "spectral": "Spectral",
-    }.get(layout_key, "Spring")
+    }.get(layout_key, "Spring (Force-Directed)")
 
     positions = get_layout(G, layout_func_name)
 

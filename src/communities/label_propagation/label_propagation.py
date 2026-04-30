@@ -10,20 +10,20 @@ from ..base import CommunityResult
 def detect_label_propagation(G: nx.Graph) -> CommunityResult:
     start = time.perf_counter()
     undirected = G.to_undirected() if G.is_directed() else G
-    communities = nx.community.label_propagation_communities(undirected)
+    communities_generator = nx.community.label_propagation_communities(undirected)
+    communities_list = [frozenset(c) for c in communities_generator]
     elapsed = time.perf_counter() - start
 
     labels: Dict[Any, int] = {}
-    for comm_id, community in enumerate(communities):
+    for comm_id, community in enumerate(communities_list):
         for node in community:
             labels[node] = comm_id
 
-    num_communities = len(communities)
+    num_communities = len(communities_list)
     community_sizes: Dict[int, int] = {
-        comm_id: len(community) for comm_id, community in enumerate(communities)
+        comm_id: len(community) for comm_id, community in enumerate(communities_list)
     }
 
-    communities_list = [frozenset(c) for c in communities]
     modularity = nx.community.modularity(undirected, communities_list)
 
     return CommunityResult(

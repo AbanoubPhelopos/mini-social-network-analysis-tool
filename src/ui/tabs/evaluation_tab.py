@@ -2,12 +2,9 @@ import streamlit as st
 import pandas as pd
 from evaluation import (
     evaluate_clustering,
-    compute_modularity,
-    compute_conductance,
     compute_nmi,
     compute_ari,
 )
-from filtering import get_available_attributes, get_attribute_values
 
 
 def _extract_labels(community_results):
@@ -16,6 +13,13 @@ def _extract_labels(community_results):
     if isinstance(community_results, dict):
         return community_results
     return {}
+
+
+def _get_cached_attributes():
+    graph = st.session_state.get("graph")
+    if graph is None:
+        return []
+    return st.session_state.get(f"attr_cache_{id(graph)}", [])
 
 
 def render_evaluation_tab():
@@ -39,38 +43,62 @@ def render_evaluation_tab():
 
     st.subheader("Evaluation Metrics")
 
-    evaluation = evaluate_clustering(graph, labels)
+    if st.button("Compute Evaluation Metrics", type="primary", key="eval_metrics"):
+        with st.spinner("Computing evaluation metrics..."):
+            evaluation = evaluate_clustering(graph, labels)
+            st.session_state["eval_result"] = evaluation
+
+    evaluation = st.session_state.get("eval_result")
+    if evaluation is None:
+        st.info("Click **Compute Evaluation Metrics** to analyze.")
+        return
+
     eval_df = pd.DataFrame([{"Algorithm": algo_name, **evaluation}])
 
     if eval_df is not None and not eval_df.empty:
-        st.dataframe(eval_df, width="stretch")
+        st.dataframe(eval_df, use_container_width=True)
 
     st.divider()
 
     st.subheader("External Metrics (Ground Truth)")
-    available_attrs = get_available_attributes(graph)
+    available_attrs = _get_cached_attributes()
     if available_attrs:
         gt_attr = st.selectbox(
             "Ground Truth Attribute", available_attrs, key="gt_attr_eval"
         )
         if gt_attr:
-            gt_values = get_attribute_values(graph, gt_attr)
-            gt_labels = {n: str(v) for n, v in zip(graph.nodes(), gt_values)}
+            gt_cache_key = f"gt_labels_{id(graph)}_{gt_attr}"
+            if gt_cache_key not in st.session_state:
+                st.session_state[gt_cache_key] = {
+                    str(n): str(graph.nodes[n].get(gt_attr, "")) for n in graph.nodes()
+                }
+            gt_labels = st.session_state[gt_cache_key]
+
+            nmi_key = f"nmi_{gt_cache_key}"
+            ari_key = f"ari_{gt_cache_key}"
+
+            if st.button("Compute NMI & ARI", key="comp_nmi_ari"):
+                with st.spinner("Computing external metrics..."):
+                    nmi_score = compute_nmi(gt_labels, labels)
+                    ari_score = compute_ari(gt_labels, labels)
+                    st.session_state[nmi_key] = nmi_score
+                    st.session_state[ari_key] = ari_score
+
+            nmi_score = st.session_state.get(nmi_key)
+            ari_score = st.session_state.get(ari_key)
 
             col1, col2 = st.columns(2)
             with col1:
-                nmi_score = compute_nmi(gt_labels, labels)
                 if nmi_score is not None:
                     st.metric("NMI (Normalized Mutual Info)", f"{nmi_score:.4f}")
                 else:
-                    st.info("NMI could not be computed.")
+                    st.info("Click **Compute NMI & ARI** above.")
 
             with col2:
-                ari_score = compute_ari(gt_labels, labels)
                 if ari_score is not None:
                     st.metric("ARI (Adjusted Rand Index)", f"{ari_score:.4f}")
                 else:
-                    st.info("ARI could not be computed.")
+                    st.info("Click **Compute NMI & ARI** above.")
     else:
         st.info("No node attributes available for ground truth comparison.")
 
