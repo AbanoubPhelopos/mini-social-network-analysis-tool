@@ -4,12 +4,14 @@ from typing import Any, Dict
 import community as community_louvain
 import networkx as nx
 
+from core.graph_utils import to_simple_undirected
+
 from ..base import CommunityResult
 
 
 def detect_louvain(G: nx.Graph) -> CommunityResult:
     start = time.perf_counter()
-    undirected = G.to_undirected() if G.is_directed() else G
+    undirected = to_simple_undirected(G)
     partition: Dict[Any, int] = community_louvain.best_partition(undirected)
     elapsed = time.perf_counter() - start
 

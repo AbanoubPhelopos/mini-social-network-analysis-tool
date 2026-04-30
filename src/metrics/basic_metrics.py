@@ -1,5 +1,7 @@
 import networkx as nx
 
+from core.graph_utils import to_simple_graph
+
 
 def compute_basic_metrics(G: nx.Graph) -> dict:
     """Compute fundamental graph-level metrics.
@@ -12,22 +14,23 @@ def compute_basic_metrics(G: nx.Graph) -> dict:
         directed flag, connected flag, component count, average degree,
         average clustering coefficient, and transitivity.
     """
-    num_nodes = G.number_of_nodes()
-    num_edges = G.number_of_edges()
-    density = nx.density(G)
-    is_directed = G.is_directed()
+    simple = to_simple_graph(G)
+    num_nodes = simple.number_of_nodes()
+    num_edges = simple.number_of_edges()
+    density = nx.density(simple)
+    is_directed = simple.is_directed()
     is_connected = (
-        nx.is_connected(G) if not is_directed else nx.is_strongly_connected(G)
+        nx.is_connected(simple) if not is_directed else nx.is_strongly_connected(simple)
     )
     num_components = (
-        nx.number_connected_components(G)
+        nx.number_connected_components(simple)
         if not is_directed
-        else nx.number_strongly_connected_components(G)
+        else nx.number_strongly_connected_components(simple)
     )
-    degrees = [d for _, d in G.degree()]
+    degrees = [d for _, d in simple.degree()]
     avg_degree = sum(degrees) / len(degrees) if degrees else 0.0
-    avg_clustering = nx.average_clustering(G)
-    transitivity = nx.transitivity(G)
+    avg_clustering = nx.average_clustering(simple)
+    transitivity = nx.transitivity(simple)
 
     return {
         "num_nodes": num_nodes,

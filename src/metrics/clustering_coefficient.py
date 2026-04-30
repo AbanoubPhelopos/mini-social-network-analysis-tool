@@ -2,6 +2,8 @@ from typing import Any, Dict, Tuple
 
 import networkx as nx
 
+from core.graph_utils import to_simple_undirected
+
 
 def compute_clustering_coefficients(G: nx.Graph) -> Tuple[float, Dict[Any, float]]:
     """Compute the average clustering coefficient and per-node values.
@@ -16,8 +18,7 @@ def compute_clustering_coefficients(G: nx.Graph) -> Tuple[float, Dict[Any, float
         A tuple of (average_clustering, per_node_dict) where
         per_node_dict maps each node to its clustering coefficient.
     """
-    if G.is_directed():
-        G = G.to_undirected()
+    G = to_simple_undirected(G)
 
     per_node = nx.clustering(G)
     average = nx.average_clustering(G)

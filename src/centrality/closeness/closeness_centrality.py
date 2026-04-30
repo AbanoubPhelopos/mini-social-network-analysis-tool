@@ -2,6 +2,8 @@ from typing import Any, Dict
 
 import networkx as nx
 
+from core.graph_utils import to_simple_graph
+
 
 def compute_closeness_centrality(G: nx.Graph) -> Dict[Any, float]:
     """Compute closeness centrality for all nodes, handling disconnected graphs.
@@ -15,6 +17,8 @@ def compute_closeness_centrality(G: nx.Graph) -> Dict[Any, float]:
     Returns:
         Dictionary mapping each node to its closeness centrality value.
     """
+    G = to_simple_graph(G)
+
     if G.is_directed():
         connected = nx.is_strongly_connected(G)
     else:

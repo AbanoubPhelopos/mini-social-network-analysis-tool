@@ -2,6 +2,8 @@ from typing import Any, Dict, Tuple
 
 import networkx as nx
 
+from core.graph_utils import to_simple_graph
+
 
 def compute_hits(G: nx.Graph) -> Tuple[Dict[Any, float], Dict[Any, float]]:
     """Compute HITS (Hyperlink-Induced Topic Search) hubs and authorities scores.
@@ -15,6 +17,7 @@ def compute_hits(G: nx.Graph) -> Tuple[Dict[Any, float], Dict[Any, float]]:
         computation fails.
     """
     try:
+        G = to_simple_graph(G)
         hubs, authorities = nx.hits(G)
         return (hubs, authorities)
     except Exception:

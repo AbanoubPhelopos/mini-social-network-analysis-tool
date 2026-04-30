@@ -2,6 +2,8 @@ from typing import Any, Dict
 
 import networkx as nx
 
+from core.graph_utils import to_simple_graph
+
 
 def compute_eigenvector_centrality(G: nx.Graph) -> Dict[Any, float]:
     """Compute eigenvector centrality on the largest connected component.
@@ -16,6 +18,7 @@ def compute_eigenvector_centrality(G: nx.Graph) -> Dict[Any, float]:
     Returns:
         Dictionary mapping each node to its eigenvector centrality value.
     """
+    G = to_simple_graph(G)
     result = {node: 0.0 for node in G.nodes()}
 
     if G.is_directed():

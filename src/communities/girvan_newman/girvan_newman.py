@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Set, Tuple
 
 import networkx as nx
 
+from core.graph_utils import to_simple_undirected
+
 from ..base import CommunityResult
 
 
@@ -192,7 +194,7 @@ def detect_girvan_newman(
     """
     start = time.perf_counter()
 
-    undirected = G.to_undirected()
+    undirected = to_simple_undirected(G)
     all_nodes = list(undirected.nodes())
     remaining_nodes: List[Any] = []
 
