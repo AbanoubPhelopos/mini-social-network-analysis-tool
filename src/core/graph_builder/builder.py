@@ -8,13 +8,25 @@ def build_graph(
     nodes_df: pd.DataFrame,
     edges_df: pd.DataFrame,
     directed: bool = False,
+    use_multigraph: bool = False,
 ) -> nx.Graph:
     """Build a NetworkX graph from nodes and edges DataFrames.
 
-    Adds all node attributes from the nodes DataFrame and creates edges
-    with aggregated weights from the edges DataFrame.
+    Args:
+        nodes_df: DataFrame with node attributes. Must have 'ID' column.
+        edges_df: DataFrame with edge data. Must have 'Source', 'Target', 'Weight'.
+        directed: If True, create a DiGraph/MultiDiGraph.
+        use_multigraph: If True, create a MultiGraph/MultiDiGraph where each
+            row in edges_df becomes a separate parallel edge. If False (default),
+            duplicate edges are merged and weights summed.
+
+    Returns:
+        A NetworkX Graph, DiGraph, MultiGraph, or MultiDiGraph.
     """
-    G = nx.DiGraph() if directed else nx.Graph()
+    if use_multigraph:
+        G: nx.Graph = nx.MultiDiGraph() if directed else nx.MultiGraph()
+    else:
+        G = nx.DiGraph() if directed else nx.Graph()
 
     for _, row in nodes_df.iterrows():
         node_id = str(row["ID"])
@@ -23,15 +35,31 @@ def build_graph(
         }
         G.add_node(node_id, **attrs)
 
-    for _, row in edges_df.iterrows():
-        source = str(row["Source"])
-        target = str(row["Target"])
-        weight = int(row.get("Weight", 1))
+    if use_multigraph:
+        for _, row in edges_df.iterrows():
+            source = str(row["Source"])
+            target = str(row["Target"])
+            weight = int(row.get("Weight", 1))
+            for _ in range(weight):
+                G.add_edge(source, target, weight=1)
+    else:
+        for _, row in edges_df.iterrows():
+            source = str(row["Source"])
+            target = str(row["Target"])
+            weight = int(row.get("Weight", 1))
 
-        if G.has_edge(source, target):
-            G[source][target]["weight"] += weight
-        else:
-            G.add_edge(source, target, weight=weight)
+            if G.has_edge(source, target):
+                if isinstance(G, (nx.MultiGraph, nx.MultiDiGraph)):
+                    for u, v, k, data in G.edges([source], keys=True, data=True):
+                        if v == target:
+                            data["weight"] += weight
+                            break
+                    else:
+                        G.add_edge(source, target, weight=weight)
+                else:
+                    G[source][target]["weight"] += weight
+            else:
+                G.add_edge(source, target, weight=weight)
 
     return G
 

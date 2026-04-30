@@ -6,13 +6,17 @@ import pandas as pd
 from ..constants import SOURCE_ALIASES, TARGET_ALIASES
 
 
-def load_edges_csv(uploaded_file) -> Optional[pd.DataFrame]:
+def load_edges_csv(uploaded_file, aggregate: bool = True) -> Optional[pd.DataFrame]:
     """Load and validate an edges CSV file into a DataFrame.
 
     Detects the Source and Target columns from lists of common aliases,
-    renames them to 'Source' and 'Target', strips a UTF-8 BOM, and
-    aggregates duplicate edges into weighted counts. Returns None on any
-    failure.
+    renames them to 'Source' and 'Target', strips a UTF-8 BOM.
+
+    If aggregate=True (default), duplicate edges are merged and counted
+    into a 'Weight' column. If aggregate=False, all raw rows are kept
+    with weight=1 for each.
+
+    Returns None on any failure.
     """
     try:
         raw = uploaded_file.read()
@@ -61,7 +65,10 @@ def load_edges_csv(uploaded_file) -> Optional[pd.DataFrame]:
         df["Source"] = df["Source"].astype(str).str.strip()
         df["Target"] = df["Target"].astype(str).str.strip()
 
-        df = df.groupby(["Source", "Target"]).size().reset_index(name="Weight")
+        if aggregate:
+            df = df.groupby(["Source", "Target"]).size().reset_index(name="Weight")
+        else:
+            df["Weight"] = 1
 
         return df
 
