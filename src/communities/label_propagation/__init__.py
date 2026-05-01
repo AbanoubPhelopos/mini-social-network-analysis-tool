@@ -1,1 +1,0 @@
-from .label_propagation import detect_label_propagation

@@ -12,6 +12,7 @@ class CommunityResult:
     modularity: float
     execution_time: float
     community_sizes: Dict[int, int]
+    iteration_data: Dict[str, Any] = field(default_factory=dict)
 
     def get_community_sizes_list(self) -> List[int]:
         """Return community sizes as a sorted list (descending)."""

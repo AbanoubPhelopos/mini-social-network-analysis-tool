@@ -4,7 +4,6 @@ import pandas as pd
 from communities import (
     detect_louvain,
     detect_girvan_newman,
-    detect_label_propagation,
     compare_algorithms,
     community_result_to_dataframe,
 )
@@ -18,7 +17,7 @@ def render_community_tab():
 
     st.subheader("Run Individual Algorithms")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         if st.button("Louvain", key="comm_louv"):
@@ -28,34 +27,22 @@ def render_community_tab():
             st.success("Louvain detection complete!")
 
     with col2:
-        max_comm = st.slider("Max Communities (GN)", 2, 20, 5, key="gn_max_comm")
         if st.button("Girvan-Newman", key="comm_gn"):
             with st.spinner("Running Girvan-Newman..."):
-                st.session_state.community_results = detect_girvan_newman(
-                    graph, max_communities=max_comm
-                )
+                st.session_state.community_results = detect_girvan_newman(graph)
                 st.session_state.community_algorithm = "Girvan-Newman"
             st.success("Girvan-Newman detection complete!")
-
-    with col3:
-        if st.button("Label Propagation", key="comm_lp"):
-            with st.spinner("Running Label Propagation..."):
-                st.session_state.community_results = detect_label_propagation(graph)
-                st.session_state.community_algorithm = "Label Propagation"
-            st.success("Label Propagation detection complete!")
 
     st.divider()
     st.subheader("Algorithm Comparison (Side-by-Side)")
 
     if st.button("Compare All Algorithms", type="primary", key="compare_all"):
-        with st.spinner("Running all 3 algorithms..."):
+        with st.spinner("Running Girvan-Newman and Louvain algorithms..."):
             results_list = []
             louv_res = detect_louvain(graph)
             results_list.append(louv_res)
-            gn_res = detect_girvan_newman(graph, max_communities=5)
+            gn_res = detect_girvan_newman(graph)
             results_list.append(gn_res)
-            lp_res = detect_label_propagation(graph)
-            results_list.append(lp_res)
             st.session_state["comparison_results"] = results_list
             st.session_state.community_results = louv_res
             st.session_state.community_algorithm = "Louvain"
@@ -65,9 +52,9 @@ def render_community_tab():
         comp_df = compare_algorithms(comp_results)
         st.dataframe(comp_df, use_container_width=True, hide_index=True)
 
-        col_a, col_b, col_c = st.columns(3)
+        col_a, col_b = st.columns(2)
         for i, res in enumerate(comp_results):
-            target_col = [col_a, col_b, col_c][i]
+            target_col = [col_a, col_b][i]
             with target_col:
                 st.markdown(f"**{res.algorithm}**")
                 st.metric("Communities", res.num_communities)
