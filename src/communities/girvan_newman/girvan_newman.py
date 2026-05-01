@@ -175,19 +175,19 @@ def detect_girvan_newman(
     G: nx.Graph,
     max_communities: int = 8,
     max_nodes: int = 50,
-    sample_k: int = 20,
 ) -> CommunityResult:
-    """Detect communities using a highly optimized approximate Girvan-Newman algorithm.
+    """Detect communities using classical Girvan-Newman algorithm.
 
-    Uses a subgraph of the highest-degree nodes, approximates edge betweenness
-    by sampling BFS seed nodes (not all-pairs), and propagates labels to
-    remaining nodes via neighbor majority vote.
+    Classical Girvan-Newman steps:
+    1. Calculate edge betweenness for all edges in graph
+    2. Remove edge with highest betweenness
+    3. Recalculate betweenness of all edges affected by removal
+    4. Repeat steps 2-3 until meeting stopping condition
 
     Args:
         G: NetworkX graph to analyze.
-        max_communities: Target number of communities to find.
-        max_nodes: Maximum number of nodes in the working subgraph.
-        sample_k: Number of seed nodes for approximate betweenness per iteration.
+        max_communities: Maximum number of communities to find (stopping condition).
+        max_nodes: Maximum number of nodes for performance optimization.
 
     Returns:
         CommunityResult with partition labels, modularity, and timing.
@@ -208,33 +208,37 @@ def detect_girvan_newman(
     else:
         working_graph = undirected.copy()
 
-    node_list = list(working_graph.nodes())
-    max_iterations = 500
+    # Classical Girvan-Newman algorithm
     iteration = 0
-
-    while working_graph.number_of_edges() > 0 and iteration < max_iterations:
-        if _count_components(working_graph) >= max_communities:
+    
+    while working_graph.number_of_edges() > 0:
+        # Step 1: Calculate edge betweenness for all edges
+        edge_betweenness = nx.edge_betweenness_centrality(working_graph, normalized=False)
+        
+        if not edge_betweenness:
             break
-
-        k = min(sample_k, len(node_list))
-        seeds = random.sample(node_list, k)
-
-        betweenness = _compute_approx_betweenness(working_graph, seeds)
-
-        if not betweenness:
+            
+        # Step 2: Find edge with highest betweenness
+        highest_edge = max(edge_betweenness.items(), key=lambda x: x[1])
+        edge_to_remove = highest_edge[0]
+        
+        # Step 3: Remove the edge with highest betweenness
+        working_graph.remove_edge(*edge_to_remove)
+        
+        # Check stopping conditions
+        current_components = _count_components(working_graph)
+        
+        # Stopping condition 1: K number of communities reached
+        if current_components >= max_communities:
             break
-
-        sorted_edges = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)
-        num_to_remove = max(1, len(sorted_edges) // 10)
-
-        for edge, _ in sorted_edges[:num_to_remove]:
-            if working_graph.has_edge(*edge):
-                working_graph.remove_edge(*edge)
-            if _count_components(working_graph) >= max_communities:
-                break
-
+            
+        # Stopping condition 2: No edges remain (each node is its own community)
+        if working_graph.number_of_edges() == 0:
+            break
+            
         iteration += 1
 
+    # Get final community labels
     labels = _get_component_labels(working_graph)
 
     if remaining_nodes:
@@ -258,7 +262,7 @@ def detect_girvan_newman(
     elapsed = time.perf_counter() - start
 
     return CommunityResult(
-        algorithm="Girvan-Newman (Optimized)",
+        algorithm="Girvan-Newman (Classical)",
         labels=labels,
         num_communities=num_communities,
         modularity=modularity,

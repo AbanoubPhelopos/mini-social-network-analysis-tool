@@ -1,2 +1,1 @@
-from .pagerank import compute_pagerank
 from .betweenness import compute_betweenness_centrality

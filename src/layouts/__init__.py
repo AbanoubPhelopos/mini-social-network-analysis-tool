@@ -5,6 +5,8 @@ from .shell import shell_layout
 from .kamada_kawai import kamada_kawai_layout
 from .spectral import spectral_layout
 from .random import random_layout
+from .hierarchical_tree import hierarchical_tree_layout
+from .radial_tree import radial_tree_layout
 
 LAYOUT_REGISTRY = {
     "Spring (Force-Directed)": spring_layout,
@@ -14,6 +16,8 @@ LAYOUT_REGISTRY = {
     "Kamada-Kawai": kamada_kawai_layout,
     "Spectral": spectral_layout,
     "Random": random_layout,
+    "Hierarchical Tree": hierarchical_tree_layout,
+    "Radial Tree": radial_tree_layout,
 }
 
 

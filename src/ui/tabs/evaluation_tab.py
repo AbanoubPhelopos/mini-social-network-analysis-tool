@@ -15,11 +15,15 @@ def _extract_labels(community_results):
     return {}
 
 
-def _get_cached_attributes():
+def get_node_attributes():
     graph = st.session_state.get("graph")
     if graph is None:
         return []
-    return st.session_state.get(f"attr_cache_{id(graph)}", [])
+    
+    attributes = set()
+    for node, data in graph.nodes(data=True):
+        attributes.update(data.keys())
+    return sorted(attributes)
 
 
 def render_evaluation_tab():
@@ -61,31 +65,25 @@ def render_evaluation_tab():
     st.divider()
 
     st.subheader("External Metrics (Ground Truth)")
-    available_attrs = _get_cached_attributes()
+    available_attrs = get_node_attributes()
     if available_attrs:
         gt_attr = st.selectbox(
             "Ground Truth Attribute", available_attrs, key="gt_attr_eval"
         )
         if gt_attr:
-            gt_cache_key = f"gt_labels_{id(graph)}_{gt_attr}"
-            if gt_cache_key not in st.session_state:
-                st.session_state[gt_cache_key] = {
-                    str(n): str(graph.nodes[n].get(gt_attr, "")) for n in graph.nodes()
-                }
-            gt_labels = st.session_state[gt_cache_key]
-
-            nmi_key = f"nmi_{gt_cache_key}"
-            ari_key = f"ari_{gt_cache_key}"
+            gt_labels = {
+                str(n): str(graph.nodes[n].get(gt_attr, "")) for n in graph.nodes()
+            }
 
             if st.button("Compute NMI & ARI", key="comp_nmi_ari"):
                 with st.spinner("Computing external metrics..."):
                     nmi_score = compute_nmi(gt_labels, labels)
                     ari_score = compute_ari(gt_labels, labels)
-                    st.session_state[nmi_key] = nmi_score
-                    st.session_state[ari_key] = ari_score
+                    st.session_state["nmi_score"] = nmi_score
+                    st.session_state["ari_score"] = ari_score
 
-            nmi_score = st.session_state.get(nmi_key)
-            ari_score = st.session_state.get(ari_key)
+            nmi_score = st.session_state.get("nmi_score")
+            ari_score = st.session_state.get("ari_score")
 
             col1, col2 = st.columns(2)
             with col1:

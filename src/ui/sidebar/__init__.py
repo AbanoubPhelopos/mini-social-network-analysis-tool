@@ -1,10 +1,8 @@
 import streamlit as st
-from ui.sidebar import (
-    render_data_loading_section,
-    render_visualization_settings_section,
-    render_filters_section,
-    get_active_graph,
-)
+from .data_loading import render_data_loading_section
+from .visualization_settings import render_visualization_settings_section
+from .filters import render_filters_section
+from .utils import get_active_graph
 
 
 def render_sidebar() -> dict:

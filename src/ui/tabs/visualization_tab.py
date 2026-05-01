@@ -13,14 +13,17 @@ def render_visualization_tab(viz_params):
 
     num_nodes = graph.number_of_nodes()
     num_edges = graph.number_of_edges()
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Nodes", num_nodes)
     with col2:
         st.metric("Edges", num_edges)
     with col3:
+        is_directed = graph.is_directed()
+        st.metric("Graph Type", "Directed" if is_directed else "Undirected")
+    with col4:
         is_multi = hasattr(graph, "is_multigraph") and graph.is_multigraph()
-        st.metric("Type", "MultiGraph" if is_multi else "Simple Graph")
+        st.metric("Edge Mode", "Multi" if is_multi else "Simple")
 
     if num_edges > 10000:
         st.warning(
@@ -29,6 +32,10 @@ def render_visualization_tab(viz_params):
             f"Consider using **Unique Edges (Aggregated)** mode in the sidebar for faster rendering."
         )
 
+    # Show graph type information
+    graph_type = "Directed" if graph.is_directed() else "Undirected"
+    st.info(f"Graph Type: {graph_type} - Visualization will respect edge directions accordingly.")
+    
     if st.button("Generate Visualization", type="primary", key="viz_gen"):
         with st.spinner(
             f"Computing layout and generating visualization ({num_edges:,} edges)..."

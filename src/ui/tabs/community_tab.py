@@ -108,8 +108,4 @@ def render_community_tab():
     if df is not None:
         st.dataframe(df, use_container_width=True)
 
-    if st.button("Export Community CSV", key="export_comm"):
-        csv_data = df.to_csv(index=False)
-        st.download_button(
-            "Download", data=csv_data, file_name="communities.csv", mime="text/csv"
-        )
+    

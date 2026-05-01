@@ -9,7 +9,6 @@ from metrics import (
     compute_average_path_length,
     get_connected_components,
 )
-from export import export_metrics_csv
 
 
 def _graph_key(graph):
@@ -42,6 +41,10 @@ def render_metrics_tab():
         st.info("Click **Compute Metrics** to analyze the graph.")
         return
 
+    # Show graph type
+    graph_type = "Directed" if basic.get("is_directed", False) else "Undirected"
+    st.info(f"Graph Type: {graph_type}")
+    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Nodes", basic.get("num_nodes", 0))
@@ -65,34 +68,93 @@ def render_metrics_tab():
     degree_dist = st.session_state.get("metrics_degree_dist")
     if degree_dist and degree_dist.get("distribution"):
         st.subheader("Degree Distribution")
-        dist_df = pd.DataFrame(
-            list(degree_dist["distribution"].items()),
-            columns=["Degree", "Count"],
-        )
-        fig = px.bar(dist_df, x="Degree", y="Count", title="Degree Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-        col_a, col_b, col_c, col_d = st.columns(4)
-        col_a.metric("Min Degree", degree_dist["min"])
-        col_b.metric("Max Degree", degree_dist["max"])
-        col_c.metric("Mean Degree", f"{degree_dist['mean']:.2f}")
-        col_d.metric("Std Dev", f"{degree_dist['std']:.2f}")
+        
+        # Check if graph is directed and show appropriate degree info
+        if basic.get("is_directed", False):
+            # For directed graphs, calculate in-degree and out-degree distributions
+            graph = st.session_state.get("graph")
+            in_degrees = [d for _, d in graph.in_degree()]
+            out_degrees = [d for _, d in graph.out_degree()]
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**In-Degree Distribution**")
+                in_dist_df = pd.DataFrame([
+                    {"Degree": deg, "Count": in_degrees.count(deg)} 
+                    for deg in sorted(set(in_degrees))
+                ])
+                fig1 = px.bar(in_dist_df, x="Degree", y="Count", title="In-Degree Distribution")
+                st.plotly_chart(fig1, use_container_width=True)
+                
+            with col2:
+                st.write("**Out-Degree Distribution**")
+                out_dist_df = pd.DataFrame([
+                    {"Degree": deg, "Count": out_degrees.count(deg)} 
+                    for deg in sorted(set(out_degrees))
+                ])
+                fig2 = px.bar(out_dist_df, x="Degree", y="Count", title="Out-Degree Distribution")
+                st.plotly_chart(fig2, use_container_width=True)
+                
+            # Show in/out degree statistics
+            col_a, col_b, col_c, col_d = st.columns(4)
+            col_a.metric("Min In-Degree", min(in_degrees) if in_degrees else 0)
+            col_b.metric("Max In-Degree", max(in_degrees) if in_degrees else 0)
+            col_c.metric("Min Out-Degree", min(out_degrees) if out_degrees else 0)
+            col_d.metric("Max Out-Degree", max(out_degrees) if out_degrees else 0)
+        else:
+            # For undirected graphs, show regular degree distribution
+            dist_df = pd.DataFrame(
+                list(degree_dist["distribution"].items()),
+                columns=["Degree", "Count"],
+            )
+            fig = px.bar(dist_df, x="Degree", y="Count", title="Degree Distribution")
+            st.plotly_chart(fig, use_container_width=True)
+            col_a, col_b, col_c, col_d = st.columns(4)
+            col_a.metric("Min Degree", degree_dist["min"])
+            col_b.metric("Max Degree", degree_dist["max"])
+            col_c.metric("Mean Degree", f"{degree_dist['mean']:.2f}")
+            col_d.metric("Std Dev", f"{degree_dist['std']:.2f}")
 
     st.subheader("Average Path Length")
-    if st.button("Compute Average Path Length", key=f"apl_{gk}"):
-        with st.spinner("Computing (may take a moment)..."):
-            avg_path = compute_average_path_length(graph)
-            st.session_state["metrics_avg_path"] = avg_path
+    # Show different info for directed vs undirected graphs
+    if basic.get("is_directed", False):
+        st.info("For directed graphs, path length is computed on strongly connected components.")
+        if st.button("Compute Average Path Length", key=f"apl_{gk}"):
+            with st.spinner("Computing (may take a moment)..."):
+                avg_path = compute_average_path_length(graph)
+                st.session_state["metrics_avg_path"] = avg_path
 
-    avg_path = st.session_state.get("metrics_avg_path")
-    if avg_path is not None:
-        avg_val = avg_path[0] if isinstance(avg_path, tuple) else avg_path
-        st.write(f"**Average Path Length:** {avg_val:.4f}")
+        avg_path = st.session_state.get("metrics_avg_path")
+        if avg_path is not None:
+            avg_val, component_info = avg_path
+            st.write(f"**Average Path Length:** {avg_val:.4f}")
+            st.write(f"**Computed on component with:** {component_info['component_nodes']} nodes, {component_info['component_edges']} edges")
+        else:
+            st.info("Click **Compute Average Path Length** (can be slow on large graphs).")
     else:
-        st.info("Click **Compute Average Path Length** (can be slow on large graphs).")
+        st.info("For undirected graphs, path length is computed on connected components.")
+        if st.button("Compute Average Path Length", key=f"apl_{gk}"):
+            with st.spinner("Computing (may take a moment)..."):
+                avg_path = compute_average_path_length(graph)
+                st.session_state["metrics_avg_path"] = avg_path
+
+        avg_path = st.session_state.get("metrics_avg_path")
+        if avg_path is not None:
+            avg_val, component_info = avg_path
+            st.write(f"**Average Path Length:** {avg_val:.4f}")
+            st.write(f"**Computed on component with:** {component_info['component_nodes']} nodes, {component_info['component_edges']} edges")
+        else:
+            st.info("Click **Compute Average Path Length** (can be slow on large graphs).")
 
     components = st.session_state.get("metrics_components")
     if components:
-        st.subheader("Connected Components")
+        if basic.get("is_directed", False):
+            st.subheader("Strongly Connected Components")
+            st.info("For directed graphs, showing strongly connected components.")
+        else:
+            st.subheader("Connected Components")
+            st.info("For undirected graphs, showing connected components.")
+            
         comp_df = pd.DataFrame(
             [{"Component": i + 1, "Size": len(c)} for i, c in enumerate(components)]
         )
@@ -108,9 +170,3 @@ def render_metrics_tab():
         ).sort_values("Clustering Coefficient", ascending=False)
         st.dataframe(clust_df, use_container_width=True)
 
-    if st.button("Export Metrics CSV", key=f"export_metrics_{gk}"):
-        path = export_metrics_csv(basic)
-        with open(path, "rb") as f:
-            st.download_button(
-                "Download", data=f.read(), file_name="metrics.csv", mime="text/csv"
-            )

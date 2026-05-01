@@ -31,11 +31,15 @@ def compute_degree_distribution(G: nx.Graph) -> dict:
     distribution_counter = Counter(degrees)
     distribution = dict(sorted(distribution_counter.items()))
     degree_array = np.array(degrees, dtype=float)
+    
+    mean_degree = float(degree_array.mean())
+    if G.is_directed():
+        mean_degree /= 2.0
 
     return {
         "min": int(degree_array.min()),
         "max": int(degree_array.max()),
-        "mean": float(degree_array.mean()),
+        "mean": mean_degree,
         "std": float(degree_array.std()),
         "distribution": distribution,
         "degrees": degrees,

@@ -9,7 +9,6 @@ from centrality import (
     compute_betweenness_centrality,
     compute_closeness_centrality,
 )
-from export import export_centrality_csv
 
 
 def render_centrality_tab():
@@ -28,15 +27,11 @@ def render_centrality_tab():
         st.info("Click 'Compute All Centralities' to begin.")
         return
 
-    st.subheader("Top 10 Nodes by Centrality")
+   
     measures = list(results.keys())
-    cols = st.columns(min(len(measures), 4))
-    for idx, measure in enumerate(measures[:4]):
-        with cols[idx]:
-            top = get_top_nodes(results[measure], 10)
-            st.markdown(f"**{measure.replace('_', ' ').title()}**")
-            for rank, (node, score) in enumerate(top, 1):
-                st.write(f"{rank}. {node}: {score:.4f}")
+    st.subheader("Full Centrality Table")
+    df = centrality_to_dataframe(results)
+    st.dataframe(df, use_container_width=True)
 
     st.subheader("Centrality Distribution")
     selected_measure = st.selectbox("Select Measure", measures)
@@ -49,13 +44,4 @@ def render_centrality_tab():
     fig.update_layout(xaxis_title="Score", yaxis_title="Count")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Full Centrality Table")
-    df = centrality_to_dataframe(results)
-    st.dataframe(df, use_container_width=True)
-
-    if st.button("Export Centrality CSV", key="export_cent_tab"):
-        path = export_centrality_csv(df)
-        with open(path, "rb") as f:
-            st.download_button(
-                "Download", data=f.read(), file_name="centrality.csv", mime="text/csv"
-            )
+    

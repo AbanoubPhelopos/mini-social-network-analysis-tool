@@ -28,7 +28,10 @@ def compute_basic_metrics(G: nx.Graph) -> dict:
         else nx.number_strongly_connected_components(simple)
     )
     degrees = [d for _, d in simple.degree()]
-    avg_degree = sum(degrees) / len(degrees) if degrees else 0.0
+    if is_directed:
+        avg_degree = num_edges / num_nodes if num_nodes > 0 else 0.0
+    else:
+        avg_degree = sum(degrees) / len(degrees) if degrees else 0.0
     avg_clustering = nx.average_clustering(simple)
     transitivity = nx.transitivity(simple)
 
