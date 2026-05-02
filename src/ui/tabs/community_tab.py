@@ -27,9 +27,11 @@ def render_community_tab():
             st.success("Louvain detection complete!")
 
     with col2:
+        k = st.slider("Max Community Size (k)", 1, 50, 1, key="gn_k")
+        st.caption("k=1: run until no edges remain | k>1: stop when all communities ≤ k")
         if st.button("Girvan-Newman", key="comm_gn"):
             with st.spinner("Running Girvan-Newman..."):
-                st.session_state.community_results = detect_girvan_newman(graph)
+                st.session_state.community_results = detect_girvan_newman(graph, k=k)
                 st.session_state.community_algorithm = "Girvan-Newman"
             st.success("Girvan-Newman detection complete!")
 
@@ -41,7 +43,8 @@ def render_community_tab():
             results_list = []
             louv_res = detect_louvain(graph)
             results_list.append(louv_res)
-            gn_res = detect_girvan_newman(graph)
+            gn_k = st.session_state.get("gn_k", 1)
+            gn_res = detect_girvan_newman(graph, k=gn_k)
             results_list.append(gn_res)
             st.session_state["comparison_results"] = results_list
             st.session_state.community_results = louv_res

@@ -100,11 +100,4 @@ def render_evaluation_tab():
     else:
         st.info("No node attributes available for ground truth comparison.")
 
-    st.divider()
-    st.subheader("Metrics Explanation")
-    st.markdown("""
-    - **Modularity**: Measures the strength of division of a network into communities. Range: [-0.5, 1]. Higher is better.
-    - **Conductance**: Fraction of total edge volume that points outside the community. Lower is better.
-    - **NMI**: Normalized Mutual Information between detected communities and ground truth. Range: [0, 1]. Higher is better.
-    - **ARI**: Adjusted Rand Index comparing detected vs ground truth assignments. Range: [-1, 1]. Higher is better.
-    """)
+    

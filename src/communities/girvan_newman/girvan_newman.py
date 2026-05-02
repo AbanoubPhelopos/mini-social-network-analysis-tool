@@ -173,150 +173,138 @@ def _assign_remaining_by_vote(
 
 def detect_girvan_newman(
     G: nx.Graph,
+    k: int = 1,
     max_nodes: int = 50,
 ) -> CommunityResult:
-    """Detect communities using natural Girvan-Newman algorithm with iteration tracking.
-
-    Natural Girvan-Newman steps (like Gephi):
-    1. Calculate edge betweenness centrality for all edges in graph
-    2. Identify edge with highest betweenness value
-    3. Remove this edge from the graph
-    4. Recompute betweenness centrality for all affected edges
-    5. Repeat steps 2-4 iteratively until optimal structure found
-
-    At each iteration:
-    - Track connected components (communities)
-    - Calculate modularity score
-    - Store removed edge sequence
-    - Find optimal partition based on highest modularity
-
-    Args:
-        G: NetworkX graph to analyze (directed or undirected).
-        max_nodes: Maximum number of nodes for performance optimization.
-
-    Returns:
-        CommunityResult with partition labels, modularity, timing, and iteration data.
     """
+    Girvan-Newman community detection.
+
+    Steps:
+    1. Compute edge betweenness
+    2. Remove edge with highest betweenness
+    3. Recompute betweenness
+    4. Repeat until stopping condition
+
+    Stopping conditions:
+    - If k = 1  -> continue until no edges remain
+    - If k > 1  -> stop when every community size <= k
+    """
+
     start = time.perf_counter()
 
     undirected = to_simple_undirected(G)
     all_nodes = list(undirected.nodes())
-    remaining_nodes: List[Any] = []
+    remaining_nodes = []
 
+    # Performance trimming
     if len(all_nodes) > max_nodes:
-        sorted_by_degree = sorted(
+        sorted_nodes = sorted(
             all_nodes, key=lambda n: undirected.degree(n), reverse=True
         )
-        top_nodes = sorted_by_degree[:max_nodes]
-        remaining_nodes = sorted_by_degree[max_nodes:]
-        working_graph = undirected.subgraph(top_nodes).copy()
+        keep_nodes = sorted_nodes[:max_nodes]
+        remaining_nodes = sorted_nodes[max_nodes:]
+        working_graph = undirected.subgraph(keep_nodes).copy()
     else:
         working_graph = undirected.copy()
 
-    # Enhanced Girvan-Newman with tracking
     iteration = 0
-    removed_edges: List[Tuple[Any, Any, float]] = []  # (source, target, betweenness)
-    communities_by_iteration: List[Dict[Any, int]] = []
-    modularities_by_iteration: List[float] = []
-    num_communities_by_iteration: List[int] = []
-    
-    # Track best solution based on modularity
+    removed_edges = []
+    communities_by_iteration = []
+    modularities_by_iteration = []
+    num_communities_by_iteration = []
+
+    best_labels = {n: 0 for n in working_graph.nodes()}
     best_modularity = -1.0
-    best_labels = {}
     best_iteration = 0
-    previous_modularity = -1.0
-    
+
     while working_graph.number_of_edges() > 0:
-        # Step 1: Calculate edge betweenness for all edges
-        edge_betweenness = nx.edge_betweenness_centrality(working_graph, normalized=False)
-        
+
+        # STEP 1: calculate betweenness
+        edge_betweenness = nx.edge_betweenness_centrality(
+            working_graph, normalized=False
+        )
+
         if not edge_betweenness:
             break
-            
-        # Step 2: Identify edge with highest betweenness value
-        highest_edge = max(edge_betweenness.items(), key=lambda x: x[1])
-        edge_to_remove = highest_edge[0]
-        edge_betweenness_value = highest_edge[1]
-        
-        # Step 3: Remove this edge from the graph
+
+        # STEP 2: remove highest edge
+        edge_to_remove, score = max(
+            edge_betweenness.items(),
+            key=lambda x: x[1]
+        )
+
         working_graph.remove_edge(*edge_to_remove)
-        
-        # Track removed edge
-        removed_edges.append((edge_to_remove[0], edge_to_remove[1], edge_betweenness_value))
-        
-        # Step 4: Track communities and calculate modularity at each iteration
-        current_labels = _get_component_labels(working_graph)
-        communities_by_iteration.append(current_labels.copy())
-        
-        # Calculate modularity for current partition
-        current_components = _count_components(working_graph)
-        num_communities_by_iteration.append(current_components)
-        
-        communities_sets: Dict[int, Set[Any]] = defaultdict(set)
-        for node, comm in current_labels.items():
-            communities_sets[comm].add(node)
-            
-        current_modularity = nx.community.modularity(
-            working_graph, communities_sets.values()
-        ) if working_graph.number_of_edges() > 0 else -1.0
-        
-        modularities_by_iteration.append(current_modularity)
-        
-        # Track best solution based on highest modularity
-        if current_modularity > best_modularity:
-            best_modularity = current_modularity
-            best_labels = current_labels.copy()
-            best_iteration = iteration
-        
-        # Natural stopping condition: Stop when modularity decreases significantly
-        # This allows algorithm to find optimal number of communities naturally
-        if previous_modularity > -1.0 and current_modularity < previous_modularity:
-            # Allow some tolerance for small fluctuations
-            if current_modularity < previous_modularity * 0.95:  # 5% tolerance
-                break
-            
-        previous_modularity = current_modularity
-        iteration += 1
 
-    # Use optimal community structure based on highest modularity
-    # Ensure we have valid labels, fallback to single community if needed
-    if not best_labels:
-        # Fallback: all nodes in one community
-        labels = {node: 0 for node in undirected.nodes()}
-    else:
-        labels = best_labels
+        removed_edges.append(
+            (edge_to_remove[0], edge_to_remove[1], score)
+        )
 
-    if remaining_nodes:
-        labels = _assign_remaining_by_vote(labels, remaining_nodes, undirected)
+        # Communities after removal
+        labels = _get_component_labels(working_graph)
+        communities_by_iteration.append(labels.copy())
 
-    num_communities = len(set(labels.values()))
-    community_sizes: Dict[int, int] = Counter(labels.values())
+        num_comms = len(set(labels.values()))
+        num_communities_by_iteration.append(num_comms)
 
-    all_labeled_nodes = list(labels.keys())
-    subgraph_for_mod = undirected.subgraph(all_labeled_nodes)
-    if subgraph_for_mod.number_of_edges() > 0:
-        communities_sets: Dict[int, Set[Any]] = defaultdict(set)
+        # Build community sets
+        communities_sets = defaultdict(set)
         for node, comm in labels.items():
             communities_sets[comm].add(node)
-        modularity = nx.community.modularity(
-            subgraph_for_mod, communities_sets.values()
+
+        # Compute modularity on subgraph containing only nodes in communities
+        # This ensures all nodes in the partition are present in the graph
+        community_nodes = set()
+        for community in communities_sets.values():
+            community_nodes.update(community)
+        
+        subgraph_for_mod = undirected.subgraph(community_nodes)
+        mod = nx.community.modularity(
+            subgraph_for_mod,
+            communities_sets.values()
         )
-    else:
-        modularity = -1.0
+
+        modularities_by_iteration.append(mod)
+
+        # Keep best partition
+        if mod > best_modularity:
+            best_modularity = mod
+            best_labels = labels.copy()
+            best_iteration = iteration
+
+        # ---------------------------
+        # STOPPING CONDITIONS
+        # ---------------------------
+
+        if k > 1:
+            sizes = [len(c) for c in communities_sets.values()]
+            if all(size <= k for size in sizes):
+                break
+
+        iteration += 1
+
+    # If k=1 and edges exhausted, final labels already best_labels
+
+    labels = best_labels
+
+    if remaining_nodes:
+        labels = _assign_remaining_by_vote(
+            labels, remaining_nodes, undirected
+        )
+
+    num_communities = len(set(labels.values()))
+    community_sizes = dict(Counter(labels.values()))
 
     elapsed = time.perf_counter() - start
 
-    # Create enhanced CommunityResult with iteration data
     result = CommunityResult(
-        algorithm="Girvan-Newman (Enhanced)",
+        algorithm="Girvan-Newman",
         labels=labels,
         num_communities=num_communities,
-        modularity=modularity,
+        modularity=best_modularity,
         execution_time=elapsed,
-        community_sizes=dict(community_sizes),
+        community_sizes=community_sizes,
     )
-    
-    # Add iteration tracking data
+
     result.iteration_data = {
         "communities_by_iteration": communities_by_iteration,
         "removed_edges": removed_edges,
@@ -324,7 +312,7 @@ def detect_girvan_newman(
         "num_communities_by_iteration": num_communities_by_iteration,
         "best_iteration": best_iteration,
         "best_modularity": best_modularity,
-        "total_iterations": iteration + 1
+        "total_iterations": iteration + 1,
     }
 
     return result
