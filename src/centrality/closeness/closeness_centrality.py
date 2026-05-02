@@ -6,17 +6,7 @@ from core.graph_utils import to_simple_graph
 
 
 def compute_closeness_centrality(G: nx.Graph) -> Dict[Any, float]:
-    """Compute closeness centrality for all nodes, handling disconnected graphs.
-
-    For disconnected graphs, uses the improved formula so that nodes in small
-    components are not unfairly penalized.
-
-    Args:
-        G: A NetworkX graph (may be disconnected).
-
-    Returns:
-        Dictionary mapping each node to its closeness centrality value.
-    """
+    """Compute closeness centrality for all nodes, handling disconnected graphs."""
     G = to_simple_graph(G)
 
     if G.is_directed():

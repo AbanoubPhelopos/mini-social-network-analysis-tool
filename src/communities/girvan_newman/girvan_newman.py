@@ -13,17 +13,7 @@ from ..base import CommunityResult
 def _single_source_bfs_edge_betweenness(
     G: nx.Graph, source: Any
 ) -> Dict[Tuple[Any, Any], float]:
-    """Compute edge betweenness contribution from a single BFS source.
-
-    Uses Brandes' accumulation approach for a single shortest-path tree.
-
-    Args:
-        G: The graph to traverse.
-        source: Starting node for BFS.
-
-    Returns:
-        Dictionary mapping edges to their betweenness contribution from this source.
-    """
+    """Compute edge betweenness contribution from a single BFS source."""
     edges: Dict[Tuple[Any, Any], float] = defaultdict(float)
     predecessors: Dict[Any, List[Any]] = defaultdict(list)
     shortest_paths: Dict[Any, int] = defaultdict(int)
@@ -64,15 +54,7 @@ def _single_source_bfs_edge_betweenness(
 def _compute_approx_betweenness(
     G: nx.Graph, seeds: List[Any]
 ) -> Dict[Tuple[Any, Any], float]:
-    """Compute approximate edge betweenness from sampled seed nodes.
-
-    Args:
-        G: The graph to analyze.
-        seeds: List of seed nodes to sample from.
-
-    Returns:
-        Dictionary mapping edges to their approximate betweenness scores.
-    """
+    """Compute approximate edge betweenness from sampled seed nodes."""
     betweenness: Dict[Tuple[Any, Any], float] = defaultdict(float)
     for seed in seeds:
         contribution = _single_source_bfs_edge_betweenness(G, seed)
@@ -87,14 +69,7 @@ def _compute_approx_betweenness(
 
 
 def _count_components(G: nx.Graph) -> int:
-    """Count connected components using a fast BFS-based approach.
-
-    Args:
-        G: The graph to analyze.
-
-    Returns:
-        Number of connected components.
-    """
+    """Count connected components using BFS."""
     visited: Set[Any] = set()
     count = 0
     for node in G:
@@ -115,14 +90,7 @@ def _count_components(G: nx.Graph) -> int:
 
 
 def _get_component_labels(G: nx.Graph) -> Dict[Any, int]:
-    """Assign a community label to each node based on connected components.
-
-    Args:
-        G: The graph to analyze.
-
-    Returns:
-        Dictionary mapping each node to its component label.
-    """
+    """Assign community labels based on connected components."""
     visited: Set[Any] = set()
     labels: Dict[Any, int] = {}
     component_id = 0
@@ -149,16 +117,7 @@ def _assign_remaining_by_vote(
     remaining_nodes: List[Any],
     original_graph: nx.Graph,
 ) -> Dict[Any, int]:
-    """Assign community labels to leftover nodes via neighbor majority vote.
-
-    Args:
-        labels: Existing labels for the core subgraph nodes.
-        remaining_nodes: Nodes that were excluded from the subgraph.
-        original_graph: The full original graph for neighbor lookups.
-
-    Returns:
-        Updated labels dictionary including all remaining nodes.
-    """
+    """Assign community labels to remaining nodes via neighbor majority vote."""
     for node in remaining_nodes:
         neighbor_votes: Dict[int, int] = Counter()
         for neighbor in original_graph[node]:
@@ -186,8 +145,8 @@ def detect_girvan_newman(
     4. Repeat until stopping condition
 
     Stopping conditions:
-    - If k = 1  -> continue until no edges remain
-    - If k > 1  -> stop when every community size <= k
+    - k = 1: continue until no edges remain
+    - k > 1: stop when every community size <= k
     """
 
     start = time.perf_counter()
@@ -196,7 +155,6 @@ def detect_girvan_newman(
     all_nodes = list(undirected.nodes())
     remaining_nodes = []
 
-    # Performance trimming
     if len(all_nodes) > max_nodes:
         sorted_nodes = sorted(
             all_nodes, key=lambda n: undirected.degree(n), reverse=True
@@ -218,8 +176,6 @@ def detect_girvan_newman(
     best_iteration = 0
 
     while working_graph.number_of_edges() > 0:
-
-        # STEP 1: calculate betweenness
         edge_betweenness = nx.edge_betweenness_centrality(
             working_graph, normalized=False
         )
@@ -227,7 +183,6 @@ def detect_girvan_newman(
         if not edge_betweenness:
             break
 
-        # STEP 2: remove highest edge
         edge_to_remove, score = max(
             edge_betweenness.items(),
             key=lambda x: x[1]
@@ -239,20 +194,16 @@ def detect_girvan_newman(
             (edge_to_remove[0], edge_to_remove[1], score)
         )
 
-        # Communities after removal
         labels = _get_component_labels(working_graph)
         communities_by_iteration.append(labels.copy())
 
         num_comms = len(set(labels.values()))
         num_communities_by_iteration.append(num_comms)
 
-        # Build community sets
         communities_sets = defaultdict(set)
         for node, comm in labels.items():
             communities_sets[comm].add(node)
 
-        # Compute modularity on subgraph containing only nodes in communities
-        # This ensures all nodes in the partition are present in the graph
         community_nodes = set()
         for community in communities_sets.values():
             community_nodes.update(community)
@@ -265,16 +216,12 @@ def detect_girvan_newman(
 
         modularities_by_iteration.append(mod)
 
-        # Keep best partition
         if mod > best_modularity:
             best_modularity = mod
             best_labels = labels.copy()
             best_iteration = iteration
 
-        # ---------------------------
-        # STOPPING CONDITIONS
-        # ---------------------------
-
+        
         if k > 1:
             sizes = [len(c) for c in communities_sets.values()]
             if all(size <= k for size in sizes):
@@ -282,8 +229,7 @@ def detect_girvan_newman(
 
         iteration += 1
 
-    # If k=1 and edges exhausted, final labels already best_labels
-
+    
     labels = best_labels
 
     if remaining_nodes:
